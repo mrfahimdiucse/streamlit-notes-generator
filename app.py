@@ -1,5 +1,6 @@
 import streamlit as st
-from api_calling import note_generator,audio,quiz_generator
+from api_calling import quiz_generator
+from api_calling import note_generator, audio
 from PIL import Image
 
 st.header(":red[Note Summary and Quiz Generator]",anchor=False)
