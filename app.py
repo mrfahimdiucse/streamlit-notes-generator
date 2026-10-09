@@ -1,65 +1,32 @@
-import streamlit as st
-from api_calling import quiz_generator
-from api_calling import note_generator, audio
-from PIL import Image
+from google import genai
+from dotenv import load_dotenv
+import os
+from gtts import gTTS
+import io
+#loading environment variable 
+load_dotenv()
 
-st.header(":red[Note Summary and Quiz Generator]",anchor=False)
-st.markdown("Upload upto 3 images to generate Note summary and Quiz")
-st.divider()
+my_api_key=os.environ.get("GEMINI_API_KEY")
 
-with st.sidebar:
-    st.header(":green[Controls]")
-    images=st.file_uploader("Upload The Photos of your note",type=['jpg','jpeg','png'],accept_multiple_files=True)
-    pil_images=[]
-    for img in images:
-        pil_img=Image.open(img)
-        pil_images.append(pil_img)
-    
-    if images:
-        if len(images)>3:
-            st.error("Upload at max 3 images")
-        else:
-            st.subheader("Upload Images")
-            col=st.columns(len(images))
-            for i,img in enumerate(images):
-                with col[i]:
-                    st.image(img)
-    selected=st.selectbox("Enter The Difficulty of Your Quiz",("Easy","Medium","Hard"),index=None)
-    clicked=st.button("Click the button to initiate AI",type="primary")
+# initialize a client 
+client = genai.Client(api_key=my_api_key)
+# note generator 
+def note_generator(images):
+    prompt="Analyze the uploaded image and generate complete, accurate, well-organized study notes in Markdown, including headings, bullet points, definitions, examples, formulas, and exam-focused summaries"
+    response = client.models.generate_content(
+    model="gemini-3-flash-preview",
+    contents=[images,prompt])
+    return response.text
 
+def audio(text):
+    speech=gTTS(text,lang="en", slow=False)
+    audio_buffer=io.BytesIO()
+    speech.write_to_fp(audio_buffer)
+    return audio_buffer
 
-
-#section creation
-if clicked:
-    if not images:
-        st.error("Choose atleast 1 Image!")
-    if not selected:
-        st.error("Choose Difficulty Level!")
-    if images and selected:
-        #notes
-        with st.container(border=True):
-            st.subheader("Your Notes :")
-            with st.spinner("AI is Writing notes for you"):
-                generated_notes=note_generator(pil_images)
-                st.markdown(generated_notes)
-        #audio
-        with st.container(border=True):
-            st.subheader("Audio Voice:")
-            with st.spinner("Audio is generating for you..."):
-                #clearing markdown
-                cleaned_notes = generated_notes.replace("#", "")
-                cleaned_notes = generated_notes.replace("*", "")
-                cleaned_notes = generated_notes.replace("_", "")
-                cleaned_notes = generated_notes.replace("'", "")
-                audio=audio(cleaned_notes)
-                st.audio(audio)
-        #quiz
-        with st.container(border=True):
-            st.subheader(f"Quiz ({selected}) Difficulty")
-            with st.spinner("AI is Writing questions for you"):
-                quiz=quiz_generator(pil_images,selected)
-                st.markdown(quiz)
-
-
-    
-
+def quiz_generator(images,difficulty):
+    prompt=f"Generate 5 quizes based on the {difficulty}. Make sure to add markdown to differentiate the options"
+    response = client.models.generate_content(
+    model="gemini-3-flash-preview",
+    contents=[images,prompt])
+    return response.text
