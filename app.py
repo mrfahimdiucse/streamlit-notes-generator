@@ -20,25 +20,25 @@ with st.sidebar:
         accept_multiple_files=True
     )
 
-    pil_images =[]
-
-    for img in images:
-        pil_img = Image.open(img)
-        pil_images.append(pil_img)
-
     if images:
         if len(images)>3:
             st.error("Upload at max 3 images")
         else:
+            pil_images = []
+            for img in images:
+                try:
+                    pil_images.append(Image.open(img).convert("RGB"))
+                except Exception:
+                    st.error(f"Could not read {img.name}. Upload a valid JPG or PNG image.")
+                    pil_images = []
+                    break
+
             st.subheader("Uploaded images")
-            
-            col = st.columns(len(images))
-
-            
-
-            for i,img in enumerate(images):
-                with col[i]:
-                    st.image(img)
+            if pil_images:
+                col = st.columns(len(images))
+                for i, img in enumerate(pil_images):
+                    with col[i]:
+                        st.image(img)
 
     #difficulty 
     selected_option = st.selectbox(
@@ -53,10 +53,14 @@ with st.sidebar:
 if pressed:
     if not images:
         st.error("You must upload 1 image")
+    elif len(images) > 3:
+        st.error("Upload at most 3 images")
     if not selected_option:
         st.error("You must select a difficulty")
-    
-    if images and selected_option:
+
+    if images and len(images) <= 3 and selected_option:
+        if not pil_images:
+            st.stop()
 
         #note 
 
@@ -66,7 +70,11 @@ if pressed:
             #the portion below will be replaced by API Call
 
             with st.spinner("AI is writing notes for you"):
-                generated_notes = note_generator(pil_images)
+                try:
+                    generated_notes = note_generator(pil_images)
+                except Exception as error:
+                    st.error(f"Could not generate your notes: {error}")
+                    st.stop()
                 st.markdown(generated_notes)
 
 
@@ -75,7 +83,7 @@ if pressed:
 
         #Audio transcipt
         with st.container(border=True):
-            st.subheader("Audio Transcription")
+            st.subheader("Audio version")
 
 
 
@@ -90,8 +98,12 @@ if pressed:
                 generated_notes = generated_notes.replace("`","")
 
 
-                audio_transcript = audio_transcription(generated_notes)
-                st.audio(audio_transcript)
+                try:
+                    audio_data = audio_transcription(generated_notes)
+                except Exception as error:
+                    st.error(f"Could not generate audio: {error}")
+                    st.stop()
+                st.audio(audio_data, format="audio/mp3")
 
 
         #quiz
@@ -102,5 +114,9 @@ if pressed:
             #the portion below will be replaced by API Call 
 
             with st.spinner("AI is generating the quizzes"):
-                quizzes = quiz_generator(pil_images,selected_option)
+                try:
+                    quizzes = quiz_generator(pil_images,selected_option)
+                except Exception as error:
+                    st.error(f"Could not generate your quiz: {error}")
+                    st.stop()
                 st.markdown(quizzes)
